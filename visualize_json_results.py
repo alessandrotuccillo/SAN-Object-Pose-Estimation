@@ -77,7 +77,6 @@ if __name__ == "__main__":
             return ds_id - 1
 
     elif "sem_seg" in args.dataset:
-
         def dataset_id_map(ds_id):
             return ds_id
 

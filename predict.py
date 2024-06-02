@@ -1,6 +1,7 @@
 from typing import List, Union
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 try:
     # ignore ShapelyDeprecationWarning from fvcore
@@ -79,11 +80,9 @@ class Predictor(object):
         self.model = DefaultTrainer.build_model(cfg)
         if model_path.startswith("huggingface:"):
             model_path = download_model(model_path)
-        print("Loading model from: ", model_path)
         DetectionCheckpointer(self.model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
             model_path
         )
-        print("Loaded model from: ", model_path)
         self.model.eval()
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
@@ -112,10 +111,9 @@ class Predictor(object):
             image_data = image_data_or_path
         w, h = image_data.size
         image_tensor: torch.Tensor = self._preprocess(image_data)
-        vocabulary = list(set([v.lower().strip() for v in vocabulary]))
+        vocabulary = list(set([v.lower().strip() for v in vocabulary])) #da qua l'ordine delle classi cambia
         # remove invalid vocabulary
         vocabulary = [v for v in vocabulary if v != ""]
-        print("vocabulary:", vocabulary)
         ori_vocabulary = vocabulary
 
         if isinstance(augment_vocabulary,str):
@@ -136,9 +134,9 @@ class Predictor(object):
                 ]
             )[0]["sem_seg"]
         seg_map = self._postprocess(result, ori_vocabulary)
-        if output_file:
-            self.visualize(image_data, seg_map, ori_vocabulary, output_file)
-            return
+        plt.imshow(seg_map, cmap='hot')
+        plt.show()
+        self.visualize(image_data, seg_map, ori_vocabulary, output_file)
         return {
             "image": image_data,
             "sem_seg": seg_map,
@@ -224,7 +222,7 @@ class Predictor(object):
             image = image.resize((640, int(h * 640 / w)))
         else:
             image = image.resize((int(w * 640 / h), 640))
-        image = torch.from_numpy(np.asarray(image)).float()
+        image = torch.from_numpy(np.asarray(image).copy()).float()
         image = image.permute(2, 0, 1)
         return image
 
@@ -239,11 +237,11 @@ class Predictor(object):
         Returns:
             np.ndarray: the postprocessed segmentation result
         """
-        result = result.argmax(dim=0).cpu().numpy()  # (H, W)
+        result = result.argmax(dim=0).cpu().numpy()  # (H, W) #contiene tutte le classi?
         if len(ori_vocabulary) == 0:
             return result
         result[result >= len(ori_vocabulary)] = len(ori_vocabulary)
-        return result
+        return result #contiene solo le classi specificate in input
 
 
 def pre_download():

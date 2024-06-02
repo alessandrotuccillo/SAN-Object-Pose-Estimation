@@ -262,7 +262,7 @@ def main(args):
             cfg.MODEL.WEIGHTS, resume=args.resume
         )
         res = Trainer.test(cfg, model)
-        if cfg.TEST.AUG.ENABLED:
+        if cfg.TEST.AUG.ENABLED:        # Test-time augmentation
             res.update(Trainer.test_with_TTA(cfg, model))
         if comm.is_main_process():
             verify_results(cfg, res)
