@@ -185,6 +185,8 @@ class Predictor(object):
         if output_file is None:
             return v
         v.save(output_file)
+        plt.imshow(v)
+        plt.show()
         print(f"saved to {output_file}")
 
     def _merge_vocabulary(self, vocabulary: List[str]) -> List[str]:

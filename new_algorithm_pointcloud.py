@@ -13,8 +13,7 @@ def depth_to_point_cloud(depth, rgb, fx, fy, cx, cy):
 
     # Stack into 3D point cloud
     points = np.stack((x, y, z), axis=-1).reshape(-1, 3)
-    
-    colors = rgb.reshape(-1, 3)
+    colors = rgb.reshape(-1, 4)
     
     return points, colors
 
@@ -33,6 +32,10 @@ def depth_to_point_cloud_augmented(depth, sem_seg, fx, fy, cx, cy):
     
     return points
 
+def augment_point_cloud(point_cloud, sem_seg):
+    augmented_point_cloud = np.hstack((point_cloud, sem_seg.reshape(-1, 1)))
+    return augmented_point_cloud
+
 def transform_point_cloud(point_cloud, pose):
     # Convert point cloud to homogeneous coordinates
     ones = np.ones((point_cloud.shape[0], 1))
@@ -40,7 +43,38 @@ def transform_point_cloud(point_cloud, pose):
     
     # Apply transformation
     transformed_points = (pose @ homogeneous_points.T).T
-    return transformed_points[:, :3]
+    transformed_points = transformed_points[:, :3]
+
+    # Transformation to world frame
+    frame_yaw = 90
+    frame_pitch = 180
+
+    # Convert angles from degrees to radians
+    yaw_rad = np.deg2rad(frame_yaw)
+    pitch_rad = np.deg2rad(frame_pitch)
+
+    # Create rotation matrix using yaw and pitch
+    R_yaw = np.array([
+        [np.cos(yaw_rad), -np.sin(yaw_rad), 0],
+        [np.sin(yaw_rad), np.cos(yaw_rad), 0],
+        [0, 0, 1]
+    ])
+    R_pitch = np.array([
+        [np.cos(pitch_rad), 0, np.sin(pitch_rad)],
+        [0, 1, 0],
+        [-np.sin(pitch_rad), 0, np.cos(pitch_rad)]
+    ])
+    camera_rotation = R_pitch @ R_yaw
+
+    world_points = camera_rotation @ transformed_points.T
+
+    transl_int = pose @ np.array([0, 0, 1.2, 1])
+    transl_int = transl_int[:3]
+    translation = camera_rotation @ transl_int
+
+    world_points_translated = world_points.T - translation
+
+    return world_points_translated
 
 def project_points(points, fx, fy, cx, cy):
     x = points[:, 0]
@@ -87,6 +121,7 @@ def get_object_position_from_extrema(point_cloud, classes, class_extremes):
         class_positions[i] = np.array([x_coord, y_coord, z_coord])
     return class_positions
 
+
 # Function to calculate distances between pairs of points
 def calculate_box_edges(corners):
     edges = [
@@ -104,7 +139,25 @@ def calculate_box_edges(corners):
         np.linalg.norm(corners[3] - corners[7]),
     ]
     return edges
+'''
 
+def calculate_box_edges(corners):
+    edges = [
+        np.linalg.norm(corners[0] - corners[1]),
+        np.linalg.norm(corners[1] - corners[3]),
+        np.linalg.norm(corners[2] - corners[3]),
+        np.linalg.norm(corners[0] - corners[2]),
+        np.linalg.norm(corners[0] - corners[4]),
+        np.linalg.norm(corners[4] - corners[5]),
+        np.linalg.norm(corners[5] - corners[7]),
+        np.linalg.norm(corners[6] - corners[7]),
+        np.linalg.norm(corners[4] - corners[6]),
+        np.linalg.norm(corners[1] - corners[5]),
+        np.linalg.norm(corners[2] - corners[6]),
+        np.linalg.norm(corners[3] - corners[7]),
+    ]
+    return edges
+'''
 '''
 if __name__ == "__main__":
 
